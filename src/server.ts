@@ -3,12 +3,21 @@ import dotenv from "dotenv";
 import multer from "multer";
 import fs from "node:fs";
 import path from "node:path";
+import OpenAI from "openai";
+import { extractBenefitsFromPdf } from "./services/extractBenefits";
+import { verifyBenefitsExtraction } from "./services/verifyBenefits";
 
 dotenv.config();
 
 const app = express();
 const port = Number(process.env.PORT) || 3000;
+const apiKey = process.env.OPENAI_API_KEY;
 
+if (!apiKey) {
+  throw new Error("OPENAI_API_KEY is missing from .env");
+}
+
+const client = new OpenAI({ apiKey });
 const uploadsDir = path.join(process.cwd(), "uploads");
 
 if (!fs.existsSync(uploadsDir)) {
@@ -77,7 +86,7 @@ app.get("/", (_req, res) => {
         <style>
           body {
             font-family: Arial, sans-serif;
-            max-width: 720px;
+            max-width: 760px;
             margin: 40px auto;
             padding: 0 16px;
             line-height: 1.5;
@@ -109,7 +118,7 @@ app.get("/", (_req, res) => {
       <body>
         <div class="card">
           <h1>Benefits PDF Upload</h1>
-          <p>Upload a patient benefits PDF to begin analysis.</p>
+          <p>Upload a patient benefits PDF to extract and verify benefit data.</p>
 
           <form action="/upload" method="POST" enctype="multipart/form-data">
             <label for="benefitsPdf"><strong>Select PDF</strong></label>
@@ -120,68 +129,122 @@ app.get("/", (_req, res) => {
               accept=".pdf,application/pdf"
               required
             />
-            <button type="submit">Upload PDF</button>
+            <button type="submit">Upload and Analyze PDF</button>
           </form>
 
-          <p class="note">Current step: local upload only. OpenAI analysis comes next.</p>
+          <p class="note">This step runs extraction and verification, then saves JSON results locally.</p>
         </div>
       </body>
     </html>
   `);
 });
 
-app.post("/upload", upload.single("benefitsPdf"), (req, res) => {
-  if (!req.file) {
-    res.status(400).send(`
-      <h1>Upload failed</h1>
-      <p>No file was received.</p>
-      <p><a href="/">Try again</a></p>
+app.post("/upload", upload.single("benefitsPdf"), async (req, res, next) => {
+  try {
+    if (!req.file) {
+      res.status(400).send(`
+        <h1>Upload failed</h1>
+        <p>No file was received.</p>
+        <p><a href="/">Try again</a></p>
+      `);
+      return;
+    }
+
+    const pdfPath = req.file.path;
+    const extractionResult = await extractBenefitsFromPdf(client, pdfPath);
+    const verificationResult = await verifyBenefitsExtraction(
+      client,
+      pdfPath,
+      extractionResult.extraction
+    );
+
+    const safeOriginalName = escapeHtml(req.file.originalname);
+    const safeSavedName = escapeHtml(req.file.filename);
+    const safeExtractionPath = escapeHtml(extractionResult.savedPath);
+    const safeVerificationPath = escapeHtml(verificationResult.savedPath);
+
+    const warningsHtml = extractionResult.extraction.document_warnings.length
+      ? `<ul>${extractionResult.extraction.document_warnings
+          .map((warning) => `<li>${escapeHtml(warning)}</li>`)
+          .join("")}</ul>`
+      : "<p>None</p>";
+
+    const finalNotesHtml = verificationResult.verification.final_notes.length
+      ? `<ul>${verificationResult.verification.final_notes
+          .map((note) => `<li>${escapeHtml(note)}</li>`)
+          .join("")}</ul>`
+      : "<p>None</p>";
+
+    res.send(`
+      <!DOCTYPE html>
+      <html lang="en">
+        <head>
+          <meta charset="UTF-8" />
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <title>Analysis Complete</title>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              max-width: 860px;
+              margin: 40px auto;
+              padding: 0 16px;
+              line-height: 1.5;
+            }
+            .card {
+              border: 1px solid #ddd;
+              border-radius: 10px;
+              padding: 24px;
+              margin-bottom: 20px;
+            }
+            code {
+              background: #f4f4f4;
+              padding: 2px 6px;
+              border-radius: 4px;
+            }
+            h1, h2 {
+              margin-top: 0;
+            }
+          </style>
+        </head>
+        <body>
+          <div class="card">
+            <h1>Analysis complete</h1>
+            <p><strong>Original file:</strong> ${safeOriginalName}</p>
+            <p><strong>Saved file:</strong> <code>${safeSavedName}</code></p>
+          </div>
+
+          <div class="card">
+            <h2>Extraction summary</h2>
+            <p><strong>Document type:</strong> ${escapeHtml(extractionResult.extraction.document_type)}</p>
+            <p><strong>Payer name:</strong> ${escapeHtml(extractionResult.extraction.payer_name ?? "Not found")}</p>
+            <p><strong>Plan name:</strong> ${escapeHtml(extractionResult.extraction.plan_name ?? "Not found")}</p>
+            <p><strong>Specialist copay:</strong> ${escapeHtml(extractionResult.extraction.medical.specialist_visit_copay.value_text ?? "Not found")}</p>
+            <p><strong>Routine vision exam:</strong> ${escapeHtml(extractionResult.extraction.vision.routine_exam_copay.value_text ?? "Not found")}</p>
+            <h3>Warnings</h3>
+            ${warningsHtml}
+          </div>
+
+          <div class="card">
+            <h2>Verification summary</h2>
+            <p><strong>Overall status:</strong> ${escapeHtml(verificationResult.verification.overall_status)}</p>
+            <p><strong>Document type verification:</strong> ${escapeHtml(verificationResult.verification.document_type_verification.verification_status)}</p>
+            <h3>Final notes</h3>
+            ${finalNotesHtml}
+          </div>
+
+          <div class="card">
+            <h2>Saved result files</h2>
+            <p><strong>Extraction JSON:</strong> <code>${safeExtractionPath}</code></p>
+            <p><strong>Verification JSON:</strong> <code>${safeVerificationPath}</code></p>
+          </div>
+
+          <p><a href="/">Analyze another PDF</a></p>
+        </body>
+      </html>
     `);
-    return;
+  } catch (error) {
+    next(error);
   }
-
-  const safeOriginalName = escapeHtml(req.file.originalname);
-  const safeStoredName = escapeHtml(req.file.filename);
-
-  res.send(`
-    <!DOCTYPE html>
-    <html lang="en">
-      <head>
-        <meta charset="UTF-8" />
-        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Upload Successful</title>
-        <style>
-          body {
-            font-family: Arial, sans-serif;
-            max-width: 720px;
-            margin: 40px auto;
-            padding: 0 16px;
-            line-height: 1.5;
-          }
-          .card {
-            border: 1px solid #ddd;
-            border-radius: 10px;
-            padding: 24px;
-          }
-          code {
-            background: #f4f4f4;
-            padding: 2px 6px;
-            border-radius: 4px;
-          }
-        </style>
-      </head>
-      <body>
-        <div class="card">
-          <h1>Upload successful</h1>
-          <p><strong>Original file:</strong> ${safeOriginalName}</p>
-          <p><strong>Saved as:</strong> <code>${safeStoredName}</code></p>
-          <p><strong>Size:</strong> ${req.file.size.toLocaleString()} bytes</p>
-          <p>The PDF is now saved in your local <code>uploads</code> folder.</p>
-          <p><a href="/">Upload another PDF</a></p>
-        </div>
-      </body>
-    </html>
-  `);
 });
 
 app.use((error: Error, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
@@ -191,10 +254,10 @@ app.use((error: Error, _req: express.Request, res: express.Response, _next: expr
       <head>
         <meta charset="UTF-8" />
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-        <title>Upload Error</title>
+        <title>Analysis Error</title>
       </head>
       <body style="font-family: Arial, sans-serif; max-width: 720px; margin: 40px auto; padding: 0 16px;">
-        <h1>Upload error</h1>
+        <h1>Analysis error</h1>
         <p>${escapeHtml(error.message)}</p>
         <p><a href="/">Go back</a></p>
       </body>
