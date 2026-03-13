@@ -63,6 +63,11 @@ function getLatestExtractionFilePath(): string {
   return extractionFiles[0].fullPath;
 }
 
+function printField(label: string, fieldPath: string, items: Array<{ field_path: string; verification_status: string; extracted_value: string | null }>) {
+  const item = items.find((entry) => entry.field_path === fieldPath);
+  console.log(`${label}: ${item?.verification_status ?? "missing"} (${item?.extracted_value ?? "null"})`);
+}
+
 async function main() {
   const apiKey = process.env.OPENAI_API_KEY;
 
@@ -97,39 +102,21 @@ async function main() {
   console.log(`Saved result to: ${result.savedPath}`);
   console.log("");
   console.log(`overall_status: ${parsed.overall_status}`);
-  console.log(
-    `document_type_verification: ${parsed.document_type_verification.verification_status}`
-  );
+  console.log(`document_type_verification: ${parsed.document_type_verification.verification_status}`);
   console.log(`verified fields: ${verifiedCount}`);
   console.log(`unsupported/unclear fields: ${reviewCount}`);
 
-  const genericCopay = parsed.field_verifications.find(
-    (item) => item.field_path === "medical.generic_medical_copay"
-  );
-  const genericDeductible = parsed.field_verifications.find(
-    (item) => item.field_path === "medical.generic_medical_deductible"
-  );
-  const genericDeductibleRemaining = parsed.field_verifications.find(
-    (item) => item.field_path === "medical.generic_medical_deductible_remaining"
-  );
-  const genericCoinsurance = parsed.field_verifications.find(
-    (item) => item.field_path === "medical.generic_medical_coinsurance"
-  );
-
   console.log("");
-  console.log("Generic field verification summary:");
-  console.log(
-    `generic copay: ${genericCopay?.verification_status ?? "missing"} (${genericCopay?.extracted_value ?? "null"})`
-  );
-  console.log(
-    `generic deductible: ${genericDeductible?.verification_status ?? "missing"} (${genericDeductible?.extracted_value ?? "null"})`
-  );
-  console.log(
-    `generic deductible remaining: ${genericDeductibleRemaining?.verification_status ?? "missing"} (${genericDeductibleRemaining?.extracted_value ?? "null"})`
-  );
-  console.log(
-    `generic coinsurance: ${genericCoinsurance?.verification_status ?? "missing"} (${genericCoinsurance?.extracted_value ?? "null"})`
-  );
+  console.log("Key field verification summary:");
+  printField("specialist coinsurance", "medical.specialist_visit_coinsurance", parsed.field_verifications);
+  printField("office visit coinsurance", "medical.office_visit_coinsurance", parsed.field_verifications);
+  printField("deductible total individual", "medical.deductible_total_individual", parsed.field_verifications);
+  printField("deductible total family", "medical.deductible_total_family", parsed.field_verifications);
+  printField("deductible remaining individual", "medical.deductible_remaining_individual", parsed.field_verifications);
+  printField("deductible remaining family", "medical.deductible_remaining_family", parsed.field_verifications);
+  printField("oop remaining individual", "medical.oop_remaining_individual", parsed.field_verifications);
+  printField("oop remaining family", "medical.oop_remaining_family", parsed.field_verifications);
+  printField("generic coinsurance", "medical.generic_medical_coinsurance", parsed.field_verifications);
 
   if (parsed.final_notes.length > 0) {
     console.log("");

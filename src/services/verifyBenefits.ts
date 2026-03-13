@@ -47,9 +47,18 @@ function buildFieldCandidates(extraction: BenefitsExtraction) {
       extracted_value: extraction.medical.specialist_visit_copay.value_text
     },
     {
+      field_path: "medical.specialist_visit_coinsurance",
+      extracted_value: extraction.medical.specialist_visit_coinsurance.value_text
+    },
+    {
       field_path: "medical.office_visit_copay",
       extracted_value: extraction.medical.office_visit_copay.value_text
     },
+    {
+      field_path: "medical.office_visit_coinsurance",
+      extracted_value: extraction.medical.office_visit_coinsurance.value_text
+    },
+
     {
       field_path: "medical.oop_remaining_individual",
       extracted_value: extraction.medical.oop_remaining_individual.value_text
@@ -57,6 +66,15 @@ function buildFieldCandidates(extraction: BenefitsExtraction) {
     {
       field_path: "medical.oop_remaining_family",
       extracted_value: extraction.medical.oop_remaining_family.value_text
+    },
+
+    {
+      field_path: "medical.deductible_total_individual",
+      extracted_value: extraction.medical.deductible_total_individual.value_text
+    },
+    {
+      field_path: "medical.deductible_total_family",
+      extracted_value: extraction.medical.deductible_total_family.value_text
     },
     {
       field_path: "medical.deductible_remaining_individual",
@@ -66,6 +84,7 @@ function buildFieldCandidates(extraction: BenefitsExtraction) {
       field_path: "medical.deductible_remaining_family",
       extracted_value: extraction.medical.deductible_remaining_family.value_text
     },
+
     {
       field_path: "medical.coinsurance",
       extracted_value: extraction.medical.coinsurance.value_text
@@ -145,8 +164,9 @@ export async function verifyBenefitsExtraction(
           "If the PDF is ambiguous, mark it unclear.",
           "If no value is present in the PDF for that field, mark it not_found.",
           "Provide a short exact evidence quote when possible.",
-          "A document can still be a benefits_pdf even if it only contains generic coverage fields and not visit-specific fields.",
-          "Do not downgrade document_type just because the PDF lacks specialist or office-visit wording.",
+          "A document can still be a benefits_pdf even if it only contains generic coverage fields and not visit-specific copays.",
+          "Visit-specific coinsurance fields are valid if the PDF ties a percent value to a visit row such as office visit, physician visit, or specialist.",
+          "Separate family and individual values when the PDF shows both. Do not collapse them together.",
           "Set overall_status to review_required if the document lacks enough specific detail for final patient-responsibility logic."
         ].join(" ")
       },
@@ -180,9 +200,11 @@ export async function verifyBenefitsExtraction(
               JSON.stringify(fieldCandidates, null, 2),
               "",
               "Important verification rules:",
-              "- Generic copay/deductible/coinsurance fields are valid if the PDF supports them.",
+              "- Specialist or office visit coinsurance is valid if the PDF explicitly ties a percent to that visit type.",
+              "- Generic fields are valid if the PDF supports them.",
+              "- Individual and family deductible values must stay separate if the PDF shows both.",
+              "- Individual and family out-of-pocket remaining values must stay separate if the PDF shows both.",
               "- Do not treat a generic copay as specialist or office visit unless the PDF explicitly says so.",
-              "- If the PDF has coverage values but lacks visit-specific detail, keep overall_status as review_required but verify the generic fields that are truly present.",
               "",
               "Return results in the required schema."
             ].join("\n")

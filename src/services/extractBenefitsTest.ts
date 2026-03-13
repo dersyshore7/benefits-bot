@@ -57,13 +57,25 @@ async function main() {
   console.log(`document_type: ${parsed.document_type}`);
   console.log(`payer_name: ${parsed.payer_name ?? "null"}`);
   console.log(`plan_name: ${parsed.plan_name ?? "null"}`);
+
   console.log(`specialist copay: ${parsed.medical.specialist_visit_copay.value_text ?? "null"}`);
+  console.log(`specialist coinsurance: ${parsed.medical.specialist_visit_coinsurance.value_text ?? "null"}`);
   console.log(`office visit copay: ${parsed.medical.office_visit_copay.value_text ?? "null"}`);
+  console.log(`office visit coinsurance: ${parsed.medical.office_visit_coinsurance.value_text ?? "null"}`);
+
+  console.log(`deductible total individual: ${parsed.medical.deductible_total_individual.value_text ?? "null"}`);
+  console.log(`deductible total family: ${parsed.medical.deductible_total_family.value_text ?? "null"}`);
+  console.log(`deductible remaining individual: ${parsed.medical.deductible_remaining_individual.value_text ?? "null"}`);
+  console.log(`deductible remaining family: ${parsed.medical.deductible_remaining_family.value_text ?? "null"}`);
+
+  console.log(`oop remaining individual: ${parsed.medical.oop_remaining_individual.value_text ?? "null"}`);
+  console.log(`oop remaining family: ${parsed.medical.oop_remaining_family.value_text ?? "null"}`);
+
   console.log(`generic medical copay: ${parsed.medical.generic_medical_copay.value_text ?? "null"}`);
   console.log(`generic deductible: ${parsed.medical.generic_medical_deductible.value_text ?? "null"}`);
   console.log(`generic deductible remaining: ${parsed.medical.generic_medical_deductible_remaining.value_text ?? "null"}`);
   console.log(`generic coinsurance: ${parsed.medical.generic_medical_coinsurance.value_text ?? "null"}`);
-  console.log(`vision routine exam: ${parsed.vision.routine_exam_copay.value_text ?? "null"}`);
+  console.log(`generic oop remaining: ${parsed.medical.generic_medical_oop_remaining.value_text ?? "null"}`);
 
   if (parsed.document_warnings.length > 0) {
     console.log("");
