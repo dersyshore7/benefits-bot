@@ -52,12 +52,17 @@ export async function extractBenefitsFromPdf(
           "If a field is ambiguous, use status unclear.",
           "Use short exact evidence quotes from the PDF when possible.",
           "Classify the document as benefits_pdf if it contains real benefit or cost-sharing information, even if the labels are generic.",
-          "Only use not_benefits_pdf when the document truly does not contain benefit/cost-sharing information relevant to coverage.",
+          "Only use not_benefits_pdf when the document truly does not contain benefit or cost-sharing information relevant to coverage.",
           "For medical visit types, prefer specialist visit if explicitly present.",
           "If specialist is not explicitly present, use office visit only if explicitly present.",
           "Do not force generic copay labels into specialist or office visit unless the PDF explicitly ties them together.",
-          "If the PDF uses generic medical labels such as Co-Payment, Deductible, Deductible Remaining, Co-Insurance, or Out-of-Pocket Remaining, place them into the generic medical fields.",
-          "Examples of generic labels include: Co-Payment - Health Benefit Plan Coverage, Deductible - Health Benefit Plan Coverage, Deductible Remaining, Co-Insurance - Health Benefit Plan Coverage, Out of Pocket, Stop Loss.",
+          "If the PDF uses generic medical labels such as Co-Payment, Deductible, Deductible Remaining, Co-Insurance, Coinsurance, Out-of-Pocket Remaining, Out of Pocket, or Stop Loss, place them into the generic medical fields.",
+          "Coverage tables may use labels like Co-Insurance - Health Benefit Plan Coverage, Co-Payment - Health Benefit Plan Coverage, Deductible - Health Benefit Plan Coverage, Deductible Remaining, or No Network.",
+          "If a table shows Co-Insurance or Coinsurance with a percent value such as 0 Percent, 20 Percent, or 40 Percent, extract that into generic_medical_coinsurance.",
+          "If a table shows Co-Payment with a dollar value such as 0 USD or 50 USD, extract that into generic_medical_copay.",
+          "If a table shows Deductible with a value such as 0 USD Calendar Year, extract that into generic_medical_deductible.",
+          "If a table shows Deductible Remaining with a value such as 0 USD Remaining, extract that into generic_medical_deductible_remaining.",
+          "If a table shows Out-of-Pocket Remaining or Stop Loss with a value, extract that into generic_medical_oop_remaining.",
           "If vision benefits are present, extract them separately.",
           "If the PDF lacks visit-specific fields but has generic coverage values, still mark document_type as benefits_pdf and explain the limitation in document_warnings."
         ].join(" ")
@@ -79,8 +84,10 @@ export async function extractBenefitsFromPdf(
               "- If the PDF only gives a generic co-payment, put it in generic_medical_copay.",
               "- If the PDF only gives a generic deductible, put it in generic_medical_deductible.",
               "- If the PDF only gives a generic deductible remaining, put it in generic_medical_deductible_remaining.",
-              "- If the PDF only gives a generic coinsurance, put it in generic_medical_coinsurance.",
+              "- If the PDF only gives a generic coinsurance or co-insurance, put it in generic_medical_coinsurance.",
               "- If the PDF only gives a generic out-of-pocket remaining or stop loss value, put it in generic_medical_oop_remaining.",
+              "- If a coverage table includes Co-Insurance with a percent value, do not miss it.",
+              "- Preserve meaningful wording in the value when possible, such as 0 USD Remaining or 0 USD Calendar Year.",
               "- If this is a benefits PDF but it lacks visit-specific detail, still return benefits_pdf and note that limitation.",
               "- Never guess which generic values belong to specialist or office visit unless the PDF explicitly says so."
             ].join("\n")
