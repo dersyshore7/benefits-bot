@@ -41,6 +41,7 @@ function buildFieldCandidates(extraction: BenefitsExtraction) {
     { field_path: "company_name", extracted_value: extraction.company_name },
     { field_path: "plan_name", extracted_value: extraction.plan_name },
     { field_path: "state", extracted_value: extraction.state },
+
     {
       field_path: "medical.specialist_visit_copay",
       extracted_value: extraction.medical.specialist_visit_copay.value_text
@@ -69,6 +70,28 @@ function buildFieldCandidates(extraction: BenefitsExtraction) {
       field_path: "medical.coinsurance",
       extracted_value: extraction.medical.coinsurance.value_text
     },
+
+    {
+      field_path: "medical.generic_medical_copay",
+      extracted_value: extraction.medical.generic_medical_copay.value_text
+    },
+    {
+      field_path: "medical.generic_medical_deductible",
+      extracted_value: extraction.medical.generic_medical_deductible.value_text
+    },
+    {
+      field_path: "medical.generic_medical_deductible_remaining",
+      extracted_value: extraction.medical.generic_medical_deductible_remaining.value_text
+    },
+    {
+      field_path: "medical.generic_medical_coinsurance",
+      extracted_value: extraction.medical.generic_medical_coinsurance.value_text
+    },
+    {
+      field_path: "medical.generic_medical_oop_remaining",
+      extracted_value: extraction.medical.generic_medical_oop_remaining.value_text
+    },
+
     {
       field_path: "vision.routine_exam_copay",
       extracted_value: extraction.vision.routine_exam_copay.value_text
@@ -122,7 +145,9 @@ export async function verifyBenefitsExtraction(
           "If the PDF is ambiguous, mark it unclear.",
           "If no value is present in the PDF for that field, mark it not_found.",
           "Provide a short exact evidence quote when possible.",
-          "Set overall_status to review_required if any important extracted value is unsupported or unclear."
+          "A document can still be a benefits_pdf even if it only contains generic coverage fields and not visit-specific fields.",
+          "Do not downgrade document_type just because the PDF lacks specialist or office-visit wording.",
+          "Set overall_status to review_required if the document lacks enough specific detail for final patient-responsibility logic."
         ].join(" ")
       },
       {
@@ -153,6 +178,11 @@ export async function verifyBenefitsExtraction(
               "",
               "Verify the following field candidates:",
               JSON.stringify(fieldCandidates, null, 2),
+              "",
+              "Important verification rules:",
+              "- Generic copay/deductible/coinsurance fields are valid if the PDF supports them.",
+              "- Do not treat a generic copay as specialist or office visit unless the PDF explicitly says so.",
+              "- If the PDF has coverage values but lacks visit-specific detail, keep overall_status as review_required but verify the generic fields that are truly present.",
               "",
               "Return results in the required schema."
             ].join("\n")

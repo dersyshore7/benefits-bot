@@ -201,7 +201,7 @@ app.post("/upload", upload.single("benefitsPdf"), async (req, res, next) => {
               padding: 2px 6px;
               border-radius: 4px;
             }
-            h1, h2 {
+            h1, h2, h3 {
               margin-top: 0;
             }
           </style>
@@ -218,8 +218,21 @@ app.post("/upload", upload.single("benefitsPdf"), async (req, res, next) => {
             <p><strong>Document type:</strong> ${escapeHtml(extractionResult.extraction.document_type)}</p>
             <p><strong>Payer name:</strong> ${escapeHtml(extractionResult.extraction.payer_name ?? "Not found")}</p>
             <p><strong>Plan name:</strong> ${escapeHtml(extractionResult.extraction.plan_name ?? "Not found")}</p>
+
+            <h3>Specific medical fields</h3>
             <p><strong>Specialist copay:</strong> ${escapeHtml(extractionResult.extraction.medical.specialist_visit_copay.value_text ?? "Not found")}</p>
+            <p><strong>Office visit copay:</strong> ${escapeHtml(extractionResult.extraction.medical.office_visit_copay.value_text ?? "Not found")}</p>
+
+            <h3>Generic medical fallback fields</h3>
+            <p><strong>Generic medical copay:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_copay.value_text ?? "Not found")}</p>
+            <p><strong>Generic medical deductible:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_deductible.value_text ?? "Not found")}</p>
+            <p><strong>Generic medical deductible remaining:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_deductible_remaining.value_text ?? "Not found")}</p>
+            <p><strong>Generic medical coinsurance:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_coinsurance.value_text ?? "Not found")}</p>
+            <p><strong>Generic medical OOP remaining:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_oop_remaining.value_text ?? "Not found")}</p>
+
+            <h3>Vision fields</h3>
             <p><strong>Routine vision exam:</strong> ${escapeHtml(extractionResult.extraction.vision.routine_exam_copay.value_text ?? "Not found")}</p>
+
             <h3>Warnings</h3>
             ${warningsHtml}
           </div>

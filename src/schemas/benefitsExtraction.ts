@@ -26,11 +26,20 @@ export const BenefitsExtractionSchema = z.object({
   medical: z.object({
     specialist_visit_copay: EvidenceFieldSchema,
     office_visit_copay: EvidenceFieldSchema,
+
     oop_remaining_individual: EvidenceFieldSchema,
     oop_remaining_family: EvidenceFieldSchema,
+
     deductible_remaining_individual: EvidenceFieldSchema,
     deductible_remaining_family: EvidenceFieldSchema,
-    coinsurance: EvidenceFieldSchema
+
+    coinsurance: EvidenceFieldSchema,
+
+    generic_medical_copay: EvidenceFieldSchema,
+    generic_medical_deductible: EvidenceFieldSchema,
+    generic_medical_deductible_remaining: EvidenceFieldSchema,
+    generic_medical_coinsurance: EvidenceFieldSchema,
+    generic_medical_oop_remaining: EvidenceFieldSchema
   }),
 
   vision: z.object({
