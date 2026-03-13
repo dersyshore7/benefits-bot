@@ -6,6 +6,7 @@ import path from "node:path";
 import OpenAI from "openai";
 import { extractBenefitsFromPdf } from "./services/extractBenefits";
 import { verifyBenefitsExtraction } from "./services/verifyBenefits";
+import { buildRulesEngineResult } from "./services/rulesEngine";
 
 dotenv.config();
 
@@ -86,7 +87,7 @@ app.get("/", (_req, res) => {
         <style>
           body {
             font-family: Arial, sans-serif;
-            max-width: 760px;
+            max-width: 900px;
             margin: 40px auto;
             padding: 0 16px;
             line-height: 1.5;
@@ -95,8 +96,9 @@ app.get("/", (_req, res) => {
             border: 1px solid #ddd;
             border-radius: 10px;
             padding: 24px;
+            margin-bottom: 20px;
           }
-          h1 {
+          h1, h2, h3 {
             margin-top: 0;
           }
           button {
@@ -113,12 +115,20 @@ app.get("/", (_req, res) => {
             font-size: 14px;
             margin-top: 8px;
           }
+          code {
+            background: #f4f4f4;
+            padding: 2px 6px;
+            border-radius: 4px;
+          }
+          ul {
+            margin-top: 8px;
+          }
         </style>
       </head>
       <body>
         <div class="card">
           <h1>Benefits PDF Upload</h1>
-          <p>Upload a patient benefits PDF to extract and verify benefit data.</p>
+          <p>Upload a patient benefits PDF to extract, verify, and calculate the final responsibility result.</p>
 
           <form action="/upload" method="POST" enctype="multipart/form-data">
             <label for="benefitsPdf"><strong>Select PDF</strong></label>
@@ -132,7 +142,7 @@ app.get("/", (_req, res) => {
             <button type="submit">Upload and Analyze PDF</button>
           </form>
 
-          <p class="note">This step runs extraction and verification, then saves JSON results locally.</p>
+          <p class="note">This step runs extraction, verification, and the rules engine, then saves JSON results locally.</p>
         </div>
       </body>
     </html>
@@ -157,6 +167,10 @@ app.post("/upload", upload.single("benefitsPdf"), async (req, res, next) => {
       pdfPath,
       extractionResult.extraction
     );
+    const rulesResult = buildRulesEngineResult(
+      extractionResult.extraction,
+      verificationResult.verification
+    );
 
     const safeOriginalName = escapeHtml(req.file.originalname);
     const safeSavedName = escapeHtml(req.file.filename);
@@ -169,9 +183,15 @@ app.post("/upload", upload.single("benefitsPdf"), async (req, res, next) => {
           .join("")}</ul>`
       : "<p>None</p>";
 
-    const finalNotesHtml = verificationResult.verification.final_notes.length
-      ? `<ul>${verificationResult.verification.final_notes
+    const finalNotesHtml = rulesResult.notes.length
+      ? `<ul>${rulesResult.notes
           .map((note) => `<li>${escapeHtml(note)}</li>`)
+          .join("")}</ul>`
+      : "<p>None</p>";
+
+    const reasoningHtml = rulesResult.reasoning_path.length
+      ? `<ul>${rulesResult.reasoning_path
+          .map((item) => `<li>${escapeHtml(item)}</li>`)
           .join("")}</ul>`
       : "<p>None</p>";
 
@@ -185,7 +205,7 @@ app.post("/upload", upload.single("benefitsPdf"), async (req, res, next) => {
           <style>
             body {
               font-family: Arial, sans-serif;
-              max-width: 860px;
+              max-width: 900px;
               margin: 40px auto;
               padding: 0 16px;
               line-height: 1.5;
@@ -214,35 +234,32 @@ app.post("/upload", upload.single("benefitsPdf"), async (req, res, next) => {
           </div>
 
           <div class="card">
-            <h2>Extraction summary</h2>
+            <h2>Final Responsibility Result</h2>
+            <p><strong>Status:</strong> ${escapeHtml(rulesResult.status)}</p>
+            <p><strong>Medical Responsibility:</strong> ${escapeHtml(rulesResult.medical_responsibility ?? "Review Required")}</p>
+            <p><strong>Vision Responsibility:</strong> ${escapeHtml(rulesResult.vision_responsibility ?? "None")}</p>
+
+            <h3>Notes</h3>
+            ${finalNotesHtml}
+
+            <h3>Reasoning Path</h3>
+            ${reasoningHtml}
+          </div>
+
+          <div class="card">
+            <h2>Extraction Summary</h2>
             <p><strong>Document type:</strong> ${escapeHtml(extractionResult.extraction.document_type)}</p>
             <p><strong>Payer name:</strong> ${escapeHtml(extractionResult.extraction.payer_name ?? "Not found")}</p>
             <p><strong>Plan name:</strong> ${escapeHtml(extractionResult.extraction.plan_name ?? "Not found")}</p>
-
-            <h3>Specific medical fields</h3>
-            <p><strong>Specialist copay:</strong> ${escapeHtml(extractionResult.extraction.medical.specialist_visit_copay.value_text ?? "Not found")}</p>
-            <p><strong>Office visit copay:</strong> ${escapeHtml(extractionResult.extraction.medical.office_visit_copay.value_text ?? "Not found")}</p>
-
-            <h3>Generic medical fallback fields</h3>
-            <p><strong>Generic medical copay:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_copay.value_text ?? "Not found")}</p>
-            <p><strong>Generic medical deductible:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_deductible.value_text ?? "Not found")}</p>
-            <p><strong>Generic medical deductible remaining:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_deductible_remaining.value_text ?? "Not found")}</p>
-            <p><strong>Generic medical coinsurance:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_coinsurance.value_text ?? "Not found")}</p>
-            <p><strong>Generic medical OOP remaining:</strong> ${escapeHtml(extractionResult.extraction.medical.generic_medical_oop_remaining.value_text ?? "Not found")}</p>
-
-            <h3>Vision fields</h3>
-            <p><strong>Routine vision exam:</strong> ${escapeHtml(extractionResult.extraction.vision.routine_exam_copay.value_text ?? "Not found")}</p>
 
             <h3>Warnings</h3>
             ${warningsHtml}
           </div>
 
           <div class="card">
-            <h2>Verification summary</h2>
+            <h2>Verification Summary</h2>
             <p><strong>Overall status:</strong> ${escapeHtml(verificationResult.verification.overall_status)}</p>
             <p><strong>Document type verification:</strong> ${escapeHtml(verificationResult.verification.document_type_verification.verification_status)}</p>
-            <h3>Final notes</h3>
-            ${finalNotesHtml}
           </div>
 
           <div class="card">
